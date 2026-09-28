@@ -73,8 +73,12 @@ def run(tios_pad, assetmaps_pad, uitmap, cfg, evalueren=True, gemeente=None, max
             raise ValueError(f"Gemeente '{gemeente}' komt niet voor in de data.")
     leadlijst = export.maak_leadlijst(leads)
 
+    kwaliteit = export.kwaliteit_regels(
+        ev, float(y.mean()), waarschuwingen, dt.date.today().isoformat(),
+        [Path(tios_pad).name, Path(assetmaps_pad).name],
+    )
     excel_pad, csv_pad = uitmap / "leadlijst.xlsx", uitmap / "leadlijst_volledig.csv"
-    aantal_witte_vlekken = export.schrijf_excel(excel_pad, leadlijst, max_adressen)
+    aantal_witte_vlekken = export.schrijf_excel(excel_pad, leadlijst, max_adressen, kwaliteit)
     export.schrijf_csv(csv_pad, leadlijst)
 
     # Eindmodel op alle data, voor later scoren zonder opnieuw te trainen (bijv. in de app).

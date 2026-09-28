@@ -79,13 +79,62 @@ def _schrijf_blad(writer, df, naam):
         blad.column_dimensions[blad.cell(1, i).column_letter].width = min(breedte + 2, 40)
 
 
-def schrijf_excel(pad, leadlijst, max_adressen):
-    """Tabbladen: Uitleg, Top, Witte vlekken, en één per gemeente (elk max. `max_adressen`)."""
+def _beste_k(scores):
+    """Grootste top-k waarvoor een precision berekend is, met die precision."""
+    ks = [int(s[2:]) for s in scores if s.startswith("p@")]
+    return (max(ks), scores[f"p@{max(ks)}"]) if ks else (None, None)
+
+
+def _pct(waarde, decimalen=1):
+    return f"{waarde * 100:.{decimalen}f}%".replace(".", ",")
+
+
+def _keer(p, toevalskans):
+    if not toevalskans:
+        return ""
+    factor = f"{p / toevalskans:.1f}".replace(".", ",")
+    return f" Bij willekeurig kiezen is dat {_pct(toevalskans, 2)}, dus {factor}× zo goed."
+
+
+def kwaliteit_regels(ev, toevalskans, waarschuwingen, datum, bestanden):
+    """Regels voor bovenaan het uitlegblad: hoe betrouwbaar is deze lijst, in gewone taal."""
+    regels = [("Gemaakt op", f"{datum} met {' en '.join(bestanden)}")]
+    if not ev:
+        regels.append(("Kwaliteit", "Niet gemeten in deze run (de kwaliteitstest stond uit)."))
+    else:
+        bt = ev.get("backtest", {})
+        if "auc" in bt:
+            k, p = _beste_k(bt)
+            if k:
+                regels.append((
+                    "Kwaliteit (test op nieuwe klanten)",
+                    f"Het model kende alleen de klanten t/m {bt['grensjaar']}. Van de {k} adressen die "
+                    f"het toen bovenaan zette, werd daarna {_pct(p)} klant."
+                    + _keer(p, bt["toevalskans"]),
+                ))
+        cv = ev.get("cv", {}).get("gemiddeld", {})
+        if cv:
+            k, p = _beste_k(cv)
+            if k:
+                regels.append(("Kwaliteit (kruisvalidatie)",
+                               f"Van de top-{k} is {_pct(p)} al klant." + _keer(p, toevalskans)))
+            auc = f"AUC {cv['auc']:.2f}".replace(".", ",")
+            if "auc" in bt:
+                auc += f" (test op nieuwe klanten: {bt['auc']:.2f})".replace(".", ",")
+            regels.append(("AUC", auc + ". 0,5 = gokken, 1 = perfect; 0,65–0,75 is goed bruikbaar."))
+    regels += [("Let op", w) for w in waarschuwingen]
+    return regels + [("", "")]
+
+
+def schrijf_excel(pad, leadlijst, max_adressen, kwaliteit=()):
+    """Tabbladen: Uitleg (met kwaliteit), Top, Witte vlekken, en één per gemeente
+    (elk max. `max_adressen`)."""
     gebruikt = {"uitleg", "top", "witte vlekken"}
     geen_klant_dichtbij = (leadlijst["klanten_in_buurt"] == 0) & (leadlijst["klanten_in_postcode4"] == 0)
     witte_vlekken = leadlijst[geen_klant_dichtbij]
     with pd.ExcelWriter(pad, engine="openpyxl") as writer:
-        _schrijf_blad(writer, pd.DataFrame(UITLEG, columns=["onderdeel", "uitleg"]), "Uitleg")
+        uitleg = pd.DataFrame([*kwaliteit, *UITLEG], columns=["onderdeel", "uitleg"])
+        _schrijf_blad(writer, uitleg, "Uitleg")
         _schrijf_blad(writer, leadlijst.head(max_adressen), "Top")
         _schrijf_blad(writer, witte_vlekken.head(max_adressen), "Witte vlekken")
         for gemeente, deel in leadlijst.groupby("gemeente", sort=True):

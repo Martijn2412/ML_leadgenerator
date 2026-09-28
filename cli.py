@@ -2,6 +2,7 @@
 
     python cli.py run --tios TIOS.xlsx --assetmaps Woningen_Zeeland.xlsx
     python cli.py cbs-vernieuwen
+    python cli.py demo-data --map demo      (verzonnen testbestanden)
 
 Alle opties van `run` kunnen ook via omgevingsvariabelen (LEADGEN_...) worden gezet;
 de GitHub-workflow gebruikt dat.
@@ -16,6 +17,7 @@ from pathlib import Path
 
 from leadgenerator import cbs
 from leadgenerator.config import laad_config
+from leadgenerator.demodata import schrijf_demodata
 from leadgenerator.pipeline import run
 
 
@@ -47,6 +49,10 @@ def main(argv=None):
 
     sub.add_parser("cbs-vernieuwen", help="CBS-buurtcijfers opnieuw ophalen naar data/cbs/")
 
+    p_demo = sub.add_parser("demo-data", help="verzonnen TIOS- en Assetmaps-bestanden maken om te testen")
+    p_demo.add_argument("--map", default="demo", help="map waarin de bestanden komen")
+    p_demo.add_argument("--aantal", type=int, default=5000, help="aantal verzonnen adressen")
+
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s",
                         datefmt="%H:%M:%S")
@@ -56,6 +62,11 @@ def main(argv=None):
         mislukt = [naam for naam, spec in cfg.cbs.items()
                    if cbs.laad_cbs_kenmerk(naam, spec, vernieuwen=True) is None]
         return 1 if mislukt else 0
+
+    if args.opdracht == "demo-data":
+        for pad in schrijf_demodata(args.map, n=args.aantal):
+            print(f"Gemaakt: {pad}")
+        return 0
 
     if not args.tios or not args.assetmaps:
         parser.error("geef --tios en --assetmaps op (of LEADGEN_TIOS / LEADGEN_ASSETMAPS)")

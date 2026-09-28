@@ -28,6 +28,31 @@ kansrijke woningen hebben (bouwjaar, energielabel, oppervlakte, buurt, CBS-gasve
 
 Alle adressen staan in `leadlijst_volledig.csv` (Excel kan maximaal ~1 miljoen rijen tonen).
 
+Bovenaan het tabblad **Uitleg** staat hoe goed het model was in deze run, in gewone taal
+(bijv. "van de top-500 werd 2,6% klant; bij willekeurig kiezen 1,7%, dus 1,5× zo goed"),
+met de AUC en eventuele waarschuwingen (zoals ontbrekende CBS-cijfers).
+
+## Testen zonder iets te installeren
+
+**1. Demo met verzonnen data (geen klantgegevens, geen installatie)**
+GitHub → **Actions → Demo met testdata → Run workflow**. Na een paar minuten staat onderaan
+de run onder *Artifacts* de download `leadlijst-demo` met een complete leadlijst, modelrapport
+en model. Zo zie je precies wat de binnendienst straks krijgt.
+
+**2. Met echte data in de browser (GitHub Codespaces)**
+GitHub → groene knop **Code → Codespaces → Create codespace**. Er opent een programmeeromgeving
+in de browser waarin alles al geïnstalleerd is. Sleep de Excel-bestanden naar de map `invoer/`
+(links in de verkenner) en typ in de terminal:
+```bash
+python cli.py run --map invoer --tios Adressenbestand_TIOS.xlsx --assetmaps Woningen_Zeeland.xlsx
+```
+De resultaten staan in `invoer/output/`; rechtsklik → *Download*. Excel-bestanden komen nooit
+in git (`.gitignore`). Verwijder de codespace na afloop (github.com/codespaces).
+
+⚠️ In een codespace staan de bestanden tijdelijk op servers van GitHub/Microsoft, net zoals ze
+nu in Colab op servers van Google staan. Vraag bij Takkenkamp na of dat mag voor TIOS-gegevens.
+Kies bij voorkeur de regio *Europe West* (Code → Codespaces → ⋯ → *New with options*).
+
 ## Beheer
 
 - Eenmalig: de runner installeren, zie [docs/runner-installeren.md](docs/runner-installeren.md).

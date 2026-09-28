@@ -23,6 +23,10 @@ def test_hele_run(bestanden, cfg, tmp_path):
     assert len(volledig) > cfg.excel_max_adressen
     assert (volledig["eerder_contact"] == "ja").any()  # offertes zonder order zijn gemarkeerd
 
+    uitleg = pd.read_excel(resultaat.uitmap / "leadlijst.xlsx", sheet_name="Uitleg")
+    assert uitleg["onderdeel"].str.startswith("Kwaliteit", na=False).any()
+    assert uitleg["uitleg"].str.contains("AUC", na=False).any()
+
     assert "Tijdsbacktest" in resultaat.rapport
     assert "Teststraat" not in resultaat.rapport  # geen adressen in het rapport
 
