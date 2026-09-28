@@ -1,0 +1,62 @@
+name: Leadlijst maken
+
+# Knop "Run workflow" in het tabblad Actions. Draait op de runner bij Takkenkamp zelf
+# (self-hosted), zodat de klantgegevens het bedrijf niet verlaten. Er worden bewust
+# géén bestanden naar GitHub geüpload; de resultaten komen in de gedeelde map.
+on:
+  workflow_dispatch:
+    inputs:
+      assetmaps_bestand:
+        description: "Assetmaps-bestand in de gedeelde map (bijv. Woningen_Zeeland.xlsx)"
+        required: true
+      tios_bestand:
+        description: "TIOS-bestand in de gedeelde map"
+        required: true
+        default: "Adressenbestand_TIOS.xlsx"
+      gemeente:
+        description: "Alleen deze gemeente in de lijst (leeg = alle gemeenten)"
+        required: false
+        default: ""
+      max_adressen:
+        description: "Maximaal aantal adressen per Excel-tabblad"
+        required: false
+        default: "5000"
+      evaluatie:
+        description: "Kwaliteitstest draaien (duurt langer)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: leadlijst
+  cancel-in-progress: false
+
+jobs:
+  leadlijst:
+    runs-on: [self-hosted, takkenkamp]
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Benodigdheden installeren
+        run: python -m pip install --quiet -r requirements.txt
+
+      - name: Leadlijst maken
+        # Invoer gaat via omgevingsvariabelen (niet in het commando zelf), zo werkt het
+        # op Windows én Linux en kan een ingevulde tekst nooit als commando worden uitgevoerd.
+        env:
+          LEADGEN_MAP: ${{ vars.LEADGEN_MAP }}
+          LEADGEN_ASSETMAPS: ${{ inputs.assetmaps_bestand }}
+          LEADGEN_TIOS: ${{ inputs.tios_bestand }}
+          LEADGEN_GEMEENTE: ${{ inputs.gemeente }}
+          LEADGEN_MAX_ADRESSEN: ${{ inputs.max_adressen }}
+          LEADGEN_EVALUATIE: ${{ inputs.evaluatie }}
+          PYTHONIOENCODING: utf-8
+        run: python cli.py run

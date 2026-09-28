@@ -1,0 +1,17 @@
+# Klantgegevens NOOIT in git (AVG). Alleen de openbare CBS-cache in data/cbs/ mag erin.
+*.xlsx
+*.xls
+*.csv
+!data/cbs/*.csv
+*.parquet
+*.joblib
+output/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
