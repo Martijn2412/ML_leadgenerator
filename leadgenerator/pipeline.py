@@ -44,23 +44,30 @@ def run(tios_pad, assetmaps_pad, uitmap, cfg, evalueren=False, gemeente=None, ma
         raise ValueError(f"Maar {y.sum()} klanten gevonden; te weinig om een model te trainen.")
     log.info("%d adressen, %d klanten, %d kenmerken.", len(data), y.sum(), len(numeriek) + len(categorisch))
 
+    # Voor het model alleen de benodigde kolommen: per fold wordt deze tabel gekopieerd, en met
+    # alle Assetmaps-kolommen kost dat bij een grote provincie te veel geheugen.
+    modelkolommen = list(dict.fromkeys(
+        numeriek + categorisch + [kolom for kolom, _ in kenmerken.REGIO_KOLOMMEN]
+    ))
+    mdata = data[modelkolommen]
+
     ev = None
     if evalueren:
         log.info("Evaluatie: kruisvalidatie ...")
-        ev = {"cv": evaluatie.kruisvalidatie(data, y, numeriek, categorisch, cfg)}
+        ev = {"cv": evaluatie.kruisvalidatie(mdata, y, numeriek, categorisch, cfg)}
         log.info("Evaluatie: nieuwe postcodegebieden ...")
         ev["groep"] = evaluatie.kruisvalidatie(
-            data, y, numeriek, categorisch, cfg, groepen=data["postcode4"]
+            mdata, y, numeriek, categorisch, cfg, groepen=mdata["postcode4"]
         )
         log.info("Evaluatie: tijdsbacktest ...")
-        ev["backtest"] = evaluatie.tijdsbacktest(data, y, data["klant_jaar"], numeriek, categorisch, cfg)
+        ev["backtest"] = evaluatie.tijdsbacktest(mdata, y, data["klant_jaar"], numeriek, categorisch, cfg)
         log.info("Evaluatie: belangrijkste kenmerken ...")
         ev["holdout_auc"], ev["belangrijkheid"] = evaluatie.belangrijkste_kenmerken(
-            data, y, numeriek, categorisch, cfg
+            mdata, y, numeriek, categorisch, cfg
         )
 
     log.info("Leadlijst scoren (out-of-fold) ...")
-    kans = model.scoor_out_of_fold(data, y, numeriek, categorisch, cfg)
+    kans = model.scoor_out_of_fold(mdata, y, numeriek, categorisch, cfg)
     aantallen = kenmerken.klanten_in_de_buurt(data, y)
     data["klanten_in_buurt"] = aantallen["buurt_sleutel"]
     data["klanten_in_postcode4"] = aantallen["postcode4"]
@@ -82,8 +89,9 @@ def run(tios_pad, assetmaps_pad, uitmap, cfg, evalueren=False, gemeente=None, ma
     export.schrijf_csv(csv_pad, leadlijst)
 
     # Eindmodel op alle data, voor later scoren zonder opnieuw te trainen (bijv. in de app).
-    train_data = data.copy()
-    for naam, waarde in kenmerken.regio_train(data, y, cfg).items():
+    log.info("Eindmodel trainen en opslaan ...")
+    train_data = mdata.copy()
+    for naam, waarde in kenmerken.regio_train(mdata, y, cfg).items():
         train_data[naam] = waarde
     eindmodel = model.Ensemble(numeriek, categorisch, cfg).fit(train_data, y)
     model_pad = uitmap / "model.joblib"
