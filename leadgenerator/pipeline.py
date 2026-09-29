@@ -8,8 +8,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import joblib
+import numpy as np
 
-from . import cbs, evaluatie, export, kenmerken, model
+from . import cbs, evaluatie, export, kenmerken, model, redenen
 from .inlezen import lees_bronnen
 
 log = logging.getLogger(__name__)
@@ -72,23 +73,8 @@ def run(tios_pad, assetmaps_pad, uitmap, cfg, evalueren=False, gemeente=None, ma
     data["klanten_in_buurt"] = aantallen["buurt_sleutel"]
     data["klanten_in_postcode4"] = aantallen["postcode4"]
 
-    niet_klant = y == 0
-    leads = export.voeg_score_toe(data[niet_klant], kans[niet_klant], cfg)
-    if gemeente:
-        leads = leads[leads["gemeente"].astype(str).str.lower() == gemeente.strip().lower()]
-        if leads.empty:
-            raise ValueError(f"Gemeente '{gemeente}' komt niet voor in de data.")
-    leadlijst = export.maak_leadlijst(leads)
-
-    kwaliteit = export.kwaliteit_regels(
-        ev, float(y.mean()), waarschuwingen, dt.date.today().isoformat(),
-        [Path(tios_pad).name, Path(assetmaps_pad).name],
-    )
-    excel_pad, csv_pad = uitmap / "leadlijst.xlsx", uitmap / "leadlijst_volledig.csv"
-    aantal_witte_vlekken = export.schrijf_excel(excel_pad, leadlijst, max_adressen, kwaliteit)
-    export.schrijf_csv(csv_pad, leadlijst)
-
-    # Eindmodel op alle data, voor later scoren zonder opnieuw te trainen (bijv. in de app).
+    # Eindmodel op alle data: voor de redenen per adres, en om later te scoren zonder opnieuw
+    # te trainen (bijv. in de app).
     log.info("Eindmodel trainen en opslaan ...")
     train_data = mdata.copy()
     for naam, waarde in kenmerken.regio_train(mdata, y, cfg).items():
@@ -97,6 +83,36 @@ def run(tios_pad, assetmaps_pad, uitmap, cfg, evalueren=False, gemeente=None, ma
     model_pad = uitmap / "model.joblib"
     joblib.dump({"model": eindmodel, "gemaakt": dt.datetime.now().isoformat(timespec="seconds"),
                  "kenmerken": eindmodel.kenmerken}, model_pad)
+
+    niet_klant = y == 0
+    leads = export.voeg_score_toe(data[niet_klant], kans[niet_klant], cfg)
+    if gemeente:
+        leads = leads[leads["gemeente"].astype(str).str.lower() == gemeente.strip().lower()].copy()
+        if leads.empty:
+            raise ValueError(f"Gemeente '{gemeente}' komt niet voor in de data.")
+        gemeente = str(leads["gemeente"].iloc[0])  # schrijfwijze uit de data, niet zoals ingetypt
+    log.info("Redenen per adres bepalen ...")
+    X_leads = leads[modelkolommen].copy()
+    # Buurteffect voor de leads: alle bekende klanten tellen mee (zoals regio_score).
+    X_leads["buurt_klanten_nabij"] = np.log1p(leads["klanten_in_buurt"].to_numpy(dtype=float))
+    X_leads["postcode4_klanten_nabij"] = np.log1p(leads["klanten_in_postcode4"].to_numpy(dtype=float))
+    leads["redenen"] = redenen.bereken_redenen(eindmodel, X_leads)
+    leadlijst = export.maak_leadlijst(leads)
+
+    kwaliteit = export.kwaliteit_regels(
+        ev, float(y.mean()), waarschuwingen, dt.date.today().isoformat(),
+        [Path(tios_pad).name, Path(assetmaps_pad).name],
+    )
+    excel_pad, csv_pad = uitmap / "leadlijst.xlsx", uitmap / "leadlijst_volledig.csv"
+    context = {
+        "datum": dt.date.today().strftime("%d-%m-%Y"),
+        "bestanden": [Path(tios_pad).name, Path(assetmaps_pad).name],
+        "leads": len(leadlijst), "klanten": int(y.sum()), "gemeente": gemeente,
+        "max_adressen": max_adressen,
+    }
+    aantal_witte_vlekken = export.schrijf_excel(excel_pad, leadlijst, max_adressen, kwaliteit, context)
+    export.schrijf_csv(csv_pad, leadlijst)
+
 
     info = {
         "datum": dt.date.today().isoformat(),

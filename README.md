@@ -16,19 +16,33 @@ kansrijke woningen hebben (bouwjaar, energielabel, oppervlakte, buurt, CBS-gasve
    In GitHub zie je bij de run een samenvatting van het model.
 
 ### De leadlijst lezen
-| tabblad / kolom | betekenis |
+Tabbladen, in deze volgorde:
+
+| tabblad | wat staat erop |
 |---|---|
+| **Lees mij** | wat dit document is, hoe je het leest en afvinkt, en hoe betrouwbaar deze lijst is |
 | **Top** | de kansrijkste adressen van de hele provincie |
-| **Witte vlekken** | kansrijke adressen in postcodegebieden waar nog geen klant is |
 | **per gemeente** | de kansrijkste adressen per gemeente, bijv. voor een brievenactie |
+| **Witte vlekken** (laatste) | kansrijke adressen in postcodegebieden waar nog geen klant is |
+
+| kolom | betekenis |
+|---|---|
+| `benaderd` | keuzelijst ja / nee / geen interesse; bij "ja" wordt de rij grijs |
+| `opmerking` | ruimte voor eigen notities |
 | `klasse` | A = top 10%, B = volgende 20%, C = rest |
 | `score` | 0–100, hoger is kansrijker. Het is een volgorde, geen letterlijke kans |
+| `redenen` | de (max. 3) kenmerken die de score van dit adres het meest omhoog brengen, bijv. "Bouwjaar 1962 (vóór 1975: vaak nog geen spouwmuurisolatie) · Energielabel F · 4 klanten in dezelfde buurt" |
 | `eerder_contact` | "ja" = staat al in TIOS (bijv. offerte), maar werd geen klant |
 | `klanten_in_buurt` | aantal bestaande klanten in dezelfde buurt |
 
+Elk tabblad is een eigen kopie: afvinken op "Top" verandert het gemeente-tabblad niet.
 Alle adressen staan in `leadlijst_volledig.csv` (Excel kan maximaal ~1 miljoen rijen tonen).
 
-Bovenaan het tabblad **Uitleg** staat hoe goed het model was in deze run, in gewone taal
+De redenen komen uit het logistic-regression-deel van het model (per kenmerk: gewicht × waarde).
+De RandomForest weegt wel mee in de score, maar geeft geen uitleg per adres; de redenen zijn
+dus een goede, maar niet volledige verklaring van de score.
+
+Op **Lees mij** staat ook hoe goed het model was in deze run, in gewone taal
 (bijv. "van de top-500 werd 2,6% klant; bij willekeurig kiezen 1,7%, dus 1,5× zo goed"),
 met de AUC en eventuele waarschuwingen (zoals ontbrekende CBS-cijfers).
 De kwaliteitstest staat standaard uit (sneller); zet hem aan met `--evaluatie` of het vinkje
@@ -87,7 +101,8 @@ De tests gebruiken alleen verzonnen data. Zet **nooit** echte klantbestanden in 
 | `leadgenerator/kenmerken.py` | TIOS samenvatten, koppelen, label `is_klant`, kenmerken, buurteffect |
 | `leadgenerator/model.py` | ensemble (logistic regression + RandomForest), out-of-fold scoren |
 | `leadgenerator/evaluatie.py` | kruisvalidatie, nieuwe postcodegebieden, tijdsbacktest, belangrijkste kenmerken |
-| `leadgenerator/export.py` | Excel/CSV en modelrapport |
+| `leadgenerator/export.py` | Excel (Lees mij, afvinkkolommen, tabbladen)/CSV en modelrapport |
+| `leadgenerator/redenen.py` | redenen per adres in gewone taal |
 | `leadgenerator/pipeline.py` | de hele run in één functie (ook voor de toekomstige Streamlit-app) |
 | `notebooks/` | het oorspronkelijke Colab-notebook, ter referentie |
 

@@ -1,4 +1,5 @@
 import pandas as pd
+from openpyxl import load_workbook
 
 from cli import main
 from leadgenerator.pipeline import run
@@ -10,22 +11,31 @@ def test_hele_run(bestanden, cfg, tmp_path):
 
     for pad in resultaat.bestanden:
         assert pad.exists(), pad
-    bladen = pd.ExcelFile(resultaat.uitmap / "leadlijst.xlsx").sheet_names
-    assert bladen[:3] == ["Uitleg", "Top", "Witte vlekken"]
-    assert {"Middelburg", "Vlissingen", "Hulst"} <= set(bladen)
+    excel = resultaat.uitmap / "leadlijst.xlsx"
+    bladen = pd.ExcelFile(excel).sheet_names
+    assert bladen == ["Lees mij", "Top", "Hulst", "Middelburg", "Vlissingen", "Witte vlekken"]
 
-    top = pd.read_excel(resultaat.uitmap / "leadlijst.xlsx", sheet_name="Top")
+    top = pd.read_excel(excel, sheet_name="Top")
+    assert list(top.columns[:2]) == ["benaderd", "opmerking"]
     assert len(top) == cfg.excel_max_adressen
     assert top["score"].is_monotonic_decreasing
     assert set(top["klasse"]) <= {"A", "B", "C"}
+    assert top["redenen"].fillna("").str.len().gt(0).mean() > 0.9  # bijna overal een reden
+
+    blad = load_workbook(excel)["Top"]
+    keuzelijsten = blad.data_validations.dataValidation
+    assert keuzelijsten and "ja" in keuzelijsten[0].formula1
+    assert "A2" in str(keuzelijsten[0].sqref)
 
     volledig = pd.read_csv(resultaat.uitmap / "leadlijst_volledig.csv", sep=";", decimal=",")
     assert len(volledig) > cfg.excel_max_adressen
     assert (volledig["eerder_contact"] == "ja").any()  # offertes zonder order zijn gemarkeerd
 
-    uitleg = pd.read_excel(resultaat.uitmap / "leadlijst.xlsx", sheet_name="Uitleg")
-    assert uitleg["onderdeel"].str.startswith("Kwaliteit", na=False).any()
-    assert uitleg["uitleg"].str.contains("AUC", na=False).any()
+    lees_mij = pd.read_excel(excel, sheet_name="Lees mij", header=None).fillna("")
+    assert lees_mij.iloc[0, 0] == "Leadlijst Takkenkamp"
+    assert (lees_mij[0] == "Wat is dit?").any()
+    assert lees_mij[0].str.startswith("Kwaliteit").any()
+    assert lees_mij[1].str.contains("AUC").any()
 
     assert "Tijdsbacktest" in resultaat.rapport
     assert "Teststraat" not in resultaat.rapport  # geen adressen in het rapport
@@ -44,5 +54,6 @@ def test_gemeentefilter_en_cli(bestanden, tmp_path, monkeypatch):
     assert code == 0
     volledig = pd.read_csv(uit / "leadlijst_volledig.csv", sep=";", decimal=",")
     assert set(volledig["gemeente"]) == {"Hulst"}
-    uitleg = pd.read_excel(uit / "leadlijst.xlsx", sheet_name="Uitleg")
-    assert uitleg["uitleg"].str.contains("Niet gemeten", na=False).any()  # standaard geen evaluatie
+    lees_mij = pd.read_excel(uit / "leadlijst.xlsx", sheet_name="Lees mij", header=None).fillna("")
+    assert lees_mij[1].str.contains("Niet gemeten").any()  # standaard geen evaluatie
+    assert "Hulst" in " ".join(lees_mij[1])
