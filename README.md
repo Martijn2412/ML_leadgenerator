@@ -31,6 +31,8 @@ Alle adressen staan in `leadlijst_volledig.csv` (Excel kan maximaal ~1 miljoen r
 Bovenaan het tabblad **Uitleg** staat hoe goed het model was in deze run, in gewone taal
 (bijv. "van de top-500 werd 2,6% klant; bij willekeurig kiezen 1,7%, dus 1,5× zo goed"),
 met de AUC en eventuele waarschuwingen (zoals ontbrekende CBS-cijfers).
+De kwaliteitstest staat standaard uit (sneller); zet hem aan met `--evaluatie` of het vinkje
+in de workflow, bijvoorbeeld na een nieuwe TIOS-export.
 
 ## Testen zonder iets te installeren
 
@@ -67,7 +69,8 @@ python -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\
 pip install -r requirements.txt
 python cli.py run --map "S:\Leadgenerator" --tios Adressenbestand_TIOS.xlsx --assetmaps Woningen_Zeeland.xlsx
 ```
-Opties: `--gemeente Veere`, `--max-adressen 2000`, `--geen-evaluatie` (sneller).
+Opties: `--gemeente Veere`, `--max-adressen 2000`, `--evaluatie` (draait ook de
+kwaliteitstest; standaard uit omdat die bij een grote provincie het meeste tijd kost).
 
 ### Ontwikkelen
 ```bash

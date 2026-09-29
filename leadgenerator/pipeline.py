@@ -22,7 +22,7 @@ class Resultaat:
     bestanden: list = field(default_factory=list)
 
 
-def run(tios_pad, assetmaps_pad, uitmap, cfg, evalueren=True, gemeente=None, max_adressen=None):
+def run(tios_pad, assetmaps_pad, uitmap, cfg, evalueren=False, gemeente=None, max_adressen=None):
     uitmap = Path(uitmap)
     uitmap.mkdir(parents=True, exist_ok=True)
     max_adressen = max_adressen or cfg.excel_max_adressen

@@ -22,9 +22,9 @@ on:
         required: false
         default: "5000"
       evaluatie:
-        description: "Kwaliteitstest draaien (duurt langer)"
+        description: "Kwaliteitstest draaien (duurt veel langer)"
         type: boolean
-        default: true
+        default: false
 
 permissions:
   contents: read

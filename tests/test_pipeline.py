@@ -6,7 +6,7 @@ from leadgenerator.pipeline import run
 
 def test_hele_run(bestanden, cfg, tmp_path):
     tios_pad, assetmaps_pad = bestanden
-    resultaat = run(tios_pad, assetmaps_pad, tmp_path / "uit", cfg)
+    resultaat = run(tios_pad, assetmaps_pad, tmp_path / "uit", cfg, evalueren=True)
 
     for pad in resultaat.bestanden:
         assert pad.exists(), pad
@@ -40,7 +40,9 @@ def test_gemeentefilter_en_cli(bestanden, tmp_path, monkeypatch):
     uit = tmp_path / "cli_uit"
     code = main(["--config", str(config), "run", "--map", str(tios_pad.parent),
                  "--tios", tios_pad.name, "--assetmaps", assetmaps_pad.name,
-                 "--gemeente", "hulst", "--geen-evaluatie", "--uit", str(uit)])
+                 "--gemeente", "hulst", "--uit", str(uit)])
     assert code == 0
     volledig = pd.read_csv(uit / "leadlijst_volledig.csv", sep=";", decimal=",")
     assert set(volledig["gemeente"]) == {"Hulst"}
+    uitleg = pd.read_excel(uit / "leadlijst.xlsx", sheet_name="Uitleg")
+    assert uitleg["uitleg"].str.contains("Niet gemeten", na=False).any()  # standaard geen evaluatie
