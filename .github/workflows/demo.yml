@@ -1,0 +1,51 @@
+name: Demo met testdata
+
+# Probeer de hele leadgenerator uit zonder iets te installeren en zonder echte
+# klantgegevens: draait op GitHub's eigen servers met verzonnen adressen.
+# De resultaten zijn te downloaden onderaan de run (onder "Artifacts").
+on:
+  workflow_dispatch:
+    inputs:
+      aantal_adressen:
+        description: "Aantal verzonnen adressen"
+        required: false
+        default: "5000"
+      evaluatie:
+        description: "Kwaliteitstest draaien"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+
+      - name: Verzonnen testbestanden maken
+        env:
+          AANTAL: ${{ inputs.aantal_adressen }}
+        run: python cli.py demo-data --map demo --aantal "$AANTAL"
+
+      - name: Leadlijst maken
+        env:
+          LEADGEN_MAP: demo
+          LEADGEN_TIOS: TIOS_demo.xlsx
+          LEADGEN_ASSETMAPS: Woningen_demo.xlsx
+          LEADGEN_EVALUATIE: ${{ inputs.evaluatie }}
+          LEADGEN_UIT: demo/output
+        run: python cli.py run
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: leadlijst-demo
+          path: demo/output/
+          retention-days: 7

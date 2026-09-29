@@ -1,0 +1,58 @@
+# Instellingen voor de leadgenerator. Pas hier aan, niet in de code.
+
+# Tabbladen in de Excel-bestanden. Bestaat een blad niet, dan wordt het eerste blad gebruikt.
+tios_blad: WoningBron
+assetmaps_blad: Blad1
+
+# Assetmaps gebruikt dit getal voor "onbekend". Wordt in alle getalkolommen leeg gemaakt.
+missing_code: -99997
+
+# Statussen in TIOS die betekenen dat iemand echt klant is geworden.
+order_statussen:
+  - Overgedragen aan Planning
+  - Opdracht
+  - Opdracht o.v.v. Subsidie
+
+# Technische kolomnamen in TIOS (het stukje tussen haakjes in de kopregel).
+tios_kolommen:
+  datum: datum
+  status: status
+
+# Maak een "ontbreekt"-kolom als meer dan dit aandeel van een kenmerk leeg is.
+missing_indicator_drempel: 0.005
+
+# Model
+random_state: 42
+rf_bomen: 500
+rf_max_diepte: 8
+rf_min_blad: 30
+lr_c: 1.0
+
+# Buurteffect: in hoeveel stukken de trainingsdata wordt geknipt (zodat een adres zichzelf niet meetelt).
+binnen_folds: 5
+# Leadlijst: elk adres wordt gescoord door een model dat het adres niet gezien heeft.
+scoring_folds: 5
+
+# Evaluatie
+cv_folds: 3
+groep_folds: 5
+k_waarden: [50, 100, 250, 500]
+permutatie_steekproef: 20000
+# Tijdsbacktest: train op klanten tot en met (laatste jaar - backtest_jaren), test op de jaren erna.
+backtest_jaren: 2
+
+# Leadlijst
+excel_max_adressen: 5000    # per tabblad; de volledige lijst komt altijd in de CSV
+klasse_a_aandeel: 0.10      # top 10% = klasse A
+klasse_b_aandeel: 0.20      # volgende 20% = klasse B, de rest C
+
+# CBS-buurtcijfers. Worden gecachet in data/cbs/; vernieuwen met: python cli.py cbs-vernieuwen
+cbs:
+  gasverbruik:
+    tabel: 86159NED
+    measure: M000219
+    filters:
+      Woningkenmerken: T001100
+  gemiddeld_inkomen:
+    tabel: 85984NED
+    measure: M000224
