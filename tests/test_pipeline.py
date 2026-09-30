@@ -16,7 +16,7 @@ def test_hele_run(bestanden, cfg, tmp_path):
     assert bladen == ["Uitleg", "Resultaat", "Witte vlekken"]
 
     top = pd.read_excel(excel, sheet_name="Resultaat")
-    assert list(top.columns[:2]) == ["benaderd", "opmerking"]
+    assert list(top.columns[-2:]) == ["benaderd", "opmerking"]  # achteraan
     assert len(top) == cfg.excel_max_adressen  # begrensd in deze test
     assert top["score"].is_monotonic_decreasing
     assert set(top["klasse"]) <= {"A", "B", "C"}
@@ -25,7 +25,10 @@ def test_hele_run(bestanden, cfg, tmp_path):
     blad = load_workbook(excel)["Resultaat"]
     keuzelijsten = blad.data_validations.dataValidation
     assert keuzelijsten and "ja" in keuzelijsten[0].formula1
-    assert "A2" in str(keuzelijsten[0].sqref)
+    kolom_benaderd = blad.cell(1, top.columns.get_loc("benaderd") + 1).column_letter
+    assert str(keuzelijsten[0].sqref).startswith(f"{kolom_benaderd}2")
+    regel = blad.conditional_formatting._cf_rules
+    assert any(f'${kolom_benaderd}2="ja"' in r.formula[0] for rs in regel.values() for r in rs)
 
     volledig = pd.read_csv(resultaat.uitmap / "leadlijst_volledig.csv", sep=";", decimal=",")
     assert len(volledig) > cfg.excel_max_adressen

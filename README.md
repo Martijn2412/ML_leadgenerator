@@ -26,8 +26,8 @@ Tabbladen, in deze volgorde:
 
 | kolom | betekenis |
 |---|---|
-| `benaderd` | keuzelijst ja / nee / geen interesse; bij "ja" wordt de rij grijs |
-| `opmerking` | ruimte voor eigen notities |
+| `benaderd` | (achteraan) keuzelijst ja / nee / geen interesse; bij "ja" wordt de rij grijs |
+| `opmerking` | (laatste kolom) ruimte voor eigen notities |
 | `klasse` | A = top 10%, B = volgende 20%, C = rest |
 | `score` | 0–100, hoger is kansrijker. Het is een volgorde, geen letterlijke kans |
 | `redenen` | de (max. 3) kenmerken die de score van dit adres het meest omhoog brengen, bijv. "Bouwjaar 1962 (vóór 1975: vaak nog geen spouwmuurisolatie) · Energielabel F · 4 klanten in dezelfde buurt" |
