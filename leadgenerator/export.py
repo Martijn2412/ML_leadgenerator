@@ -3,6 +3,7 @@
 import numpy as np
 import pandas as pd
 import xlsxwriter
+from xlsxwriter.utility import xl_col_to_name
 
 # Excel kan per tabblad 1.048.576 rijen tonen, waarvan één de kopregel is.
 EXCEL_MAX_RIJEN = 1_048_575
@@ -26,7 +27,7 @@ LEADLIJST_KOLOMMEN = {
     "klanten_in_postcode4": "klanten_in_postcode4",
 }
 
-# Kolommen om bij te houden wie benaderd is; staan vooraan op elk adrestabblad.
+# Kolommen om bij te houden wie benaderd is; staan achteraan op elk adrestabblad.
 AFVINK_KOLOMMEN = ["benaderd", "opmerking"]
 BENADERD_KEUZES = ["ja", "nee", "geen interesse"]
 
@@ -71,16 +72,19 @@ def _kolombreedtes(df, maximum=40):
 
 
 def _schrijf_adresblad(boek, opmaak, df, naam):
-    """Adrestabblad met vooraan 'benaderd' (keuzelijst) en 'opmerking'; afgevinkte rijen worden grijs.
+    """Adrestabblad met achteraan 'benaderd' (keuzelijst) en 'opmerking'; afgevinkte rijen worden grijs.
     Rij voor rij geschreven, zodat ook 400.000+ adressen weinig geheugen kosten."""
     df = df.copy()
-    for i, kolom in enumerate(AFVINK_KOLOMMEN):
-        df.insert(i, kolom, "")
+    for kolom in AFVINK_KOLOMMEN:
+        df[kolom] = ""
+    k_benaderd = df.columns.get_loc("benaderd")
+    k_opmerking = df.columns.get_loc("opmerking")
+
     blad = boek.add_worksheet(naam)
     for i, breedte in enumerate(_kolombreedtes(df)):
         blad.set_column(i, i, breedte)
-    blad.set_column(0, 0, 14)
-    blad.set_column(1, 1, 30)
+    blad.set_column(k_benaderd, k_benaderd, 14)
+    blad.set_column(k_opmerking, k_opmerking, 30)
     if "redenen" in df.columns:
         i = df.columns.get_loc("redenen")
         blad.set_column(i, i, 70)
@@ -91,14 +95,15 @@ def _schrijf_adresblad(boek, opmaak, df, naam):
         blad.write_row(r, 0, rij)
 
     laatste, laatste_kolom = max(len(df), 1), len(df.columns) - 1
-    blad.freeze_panes(1, 2)
+    blad.freeze_panes(1, 2)  # kopregel en straat + huisnummer blijven zichtbaar bij scrollen
     blad.autofilter(0, 0, laatste, laatste_kolom)
-    blad.data_validation(1, 0, laatste, 0, {
+    blad.data_validation(1, k_benaderd, laatste, k_benaderd, {
         "validate": "list", "source": BENADERD_KEUZES,
         "error_title": "Ongeldige keuze", "error_message": "Kies ja, nee of geen interesse.",
     })
+    letter = xl_col_to_name(k_benaderd)
     blad.conditional_format(1, 0, laatste, laatste_kolom, {
-        "type": "formula", "criteria": '=$A2="ja"', "format": opmaak["afgevinkt"],
+        "type": "formula", "criteria": f'=${letter}2="ja"', "format": opmaak["afgevinkt"],
     })
 
 
@@ -131,8 +136,8 @@ def _lees_mij_tekst(context, kwaliteit):
              "maar werd geen klant. Kijk in TIOS wat er toen speelde voordat je belt."),
         ("Hoe werk je ermee?", ""),
         ("", "Begin bovenaan het tabblad 'Resultaat': daar staan de kansrijkste adressen. Vul in de kolom "
-             "'benaderd' ja, nee of 'geen interesse' in; bij 'ja' wordt de rij grijs. In 'opmerking' kun "
-             "je notities kwijt."),
+             "'benaderd' (achteraan) ja, nee of 'geen interesse' in; bij 'ja' wordt de rij grijs. "
+             "In 'opmerking' kun je notities kwijt."),
         ("", "Met de filterknoppen in de kopregel kies je bijvoorbeeld één gemeente, woonplaats of alleen "
              "klasse A. De volgorde op score blijft dan gewoon staan."),
         ("", "Let op: 'Witte vlekken' is een aparte kopie. Een adres dat je daar afvinkt, is op 'Resultaat' "
