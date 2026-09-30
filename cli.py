@@ -1,6 +1,7 @@
 """Leadgenerator vanaf de opdrachtregel.
 
     python cli.py run --tios TIOS.xlsx --assetmaps Woningen_Zeeland.xlsx
+    python cli.py controle --tios TIOS.xlsx --assetmaps Woningen_Zeeland.xlsx   (label-lek, snel)
     python cli.py cbs-vernieuwen
     python cli.py demo-data --map demo      (verzonnen testbestanden)
 
@@ -16,9 +17,10 @@ import sys
 from pathlib import Path
 
 from leadgenerator import cbs
-from leadgenerator.config import laad_config
+from leadgenerator.config import ENERGIELABEL_KEUZES, laad_config
+from leadgenerator.controles import tabel_als_tekst
 from leadgenerator.demodata import schrijf_demodata
-from leadgenerator.pipeline import run
+from leadgenerator.pipeline import label_check, run
 
 
 def _env(naam, standaard=None):
@@ -35,11 +37,15 @@ def main(argv=None):
     parser.add_argument("--config", default=_env("CONFIG"), help="pad naar config.yaml")
     sub = parser.add_subparsers(dest="opdracht", required=True)
 
-    p_run = sub.add_parser("run", help="model trainen en leadlijst maken")
-    p_run.add_argument("--map", default=_env("MAP", "."),
-                       help="map met de Excel-bestanden; output komt in <map>/output/")
-    p_run.add_argument("--tios", default=_env("TIOS"), help="TIOS-bestand (in --map)")
-    p_run.add_argument("--assetmaps", default=_env("ASSETMAPS"), help="Assetmaps-bestand (in --map)")
+    bronnen = argparse.ArgumentParser(add_help=False)
+    bronnen.add_argument("--map", default=_env("MAP", "."),
+                         help="map met de Excel-bestanden; output komt in <map>/output/")
+    bronnen.add_argument("--tios", default=_env("TIOS"), help="TIOS-bestand (in --map)")
+    bronnen.add_argument("--assetmaps", default=_env("ASSETMAPS"), help="Assetmaps-bestand (in --map)")
+    bronnen.add_argument("--energielabel", choices=ENERGIELABEL_KEUZES, default=_env("ENERGIELABEL"),
+                         help="energielabel bij klanten: gebruiken (standaard), weglaten of negeren")
+
+    p_run = sub.add_parser("run", parents=[bronnen], help="model trainen en leadlijst maken")
     p_run.add_argument("--gemeente", default=_env("GEMEENTE"), help="alleen deze gemeente in de lijst")
     p_run.add_argument("--max-adressen", type=int, default=int(_env("MAX_ADRESSEN", "0")) or None,
                        help="max. adressen per Excel-tabblad (standaard alle)")
@@ -52,6 +58,8 @@ def main(argv=None):
                        help="sla de kwaliteitstest over (standaard)")
     p_run.add_argument("--uit", default=_env("UIT"), help="outputmap (standaard <map>/output/<datum>_<naam>)")
 
+    sub.add_parser("controle", parents=[bronnen],
+                   help="alleen de label-controle, zonder model (snel)")
     sub.add_parser("cbs-vernieuwen", help="CBS-buurtcijfers opnieuw ophalen naar data/cbs/")
 
     p_demo = sub.add_parser("demo-data", help="verzonnen TIOS- en Assetmaps-bestanden maken om te testen")
@@ -80,6 +88,17 @@ def main(argv=None):
     for pad in (tios_pad, assetmaps_pad):
         if not pad.exists():
             parser.error(f"bestand niet gevonden: {pad}")
+    if args.energielabel:
+        cfg.energielabel_bij_klanten = args.energielabel
+
+    if args.opdracht == "controle":
+        controle = label_check(tios_pad, assetmaps_pad, cfg)
+        if controle is None:
+            print("Geen energielabels gevonden in Assetmaps; controle niet mogelijk.")
+            return 0
+        print("\n" + tabel_als_tekst(controle))
+        print(controle["tekst"])
+        return 0
     uitmap = Path(args.uit) if args.uit else (
         basis / "output" / f"{dt.datetime.now():%Y-%m-%d_%H%M}_{assetmaps_pad.stem}"
     )

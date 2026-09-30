@@ -76,6 +76,27 @@ Kies bij voorkeur de regio *Europe West* (Code → Codespaces → ⋯ → *New w
   `data/cbs/` committen. Lukt ophalen niet, dan draait het model zonder die kenmerken en staat
   dat als waarschuwing in het rapport.
 
+### Controle: lekt het energielabel?
+Het energielabel in Assetmaps is het **huidige** label. Bij klanten is dat vaak gemeten ná de isolatie
+door Takkenkamp, waardoor klanten een béter label lijken te hebben dan ze vóór de order hadden. Het
+model leert dan een vertekend effect. Controleer dat snel (zonder model, paar minuten):
+```bash
+python cli.py controle --map Invoer --tios "Adressenbestand.xlsx" --assetmaps "Woningen_Gelderland.xlsx"
+```
+Je krijgt per bouwjaarklasse het gemiddelde label van klanten en niet-klanten. Hebben klanten in huizen
+van vóór 1975 duidelijk betere labels (standaard ≥ 0,5 labelstap, `label_lek_drempel`), dan meldt de
+controle een vermoedelijk lek; dat staat dan ook als waarschuwing op het Uitleg-tabblad.
+
+Wat je dan kunt doen (`--energielabel`, of `energielabel_bij_klanten` in `config.yaml`):
+- `gebruiken` – standaard, label gewoon gebruiken;
+- `weglaten` – label niet als kenmerk gebruiken (altijd veilig);
+- `negeren` – alleen labels van klanten die ná hun order zijn geregistreerd vervangen door een
+  realistisch label (van een niet-klant uit dezelfde bouwjaarklasse). Vereist een kolom met de
+  registratiedatum van het label in Assetmaps (`energielabel_datum_kolom`).
+
+Kies de variant met de tijdsbacktest: draai `run --evaluatie` met `gebruiken` en met `weglaten` en
+vergelijk de top-500 in `modelrapport.md`.
+
 ### Lokaal draaien
 ```bash
 python -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\activate

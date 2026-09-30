@@ -21,6 +21,11 @@ on:
         description: "Maximaal aantal adressen per Excel-tabblad (0 = alle adressen)"
         required: false
         default: "0"
+      energielabel:
+        description: "Energielabel bij klanten (zie README: label-lek)"
+        type: choice
+        options: [gebruiken, weglaten, negeren]
+        default: gebruiken
       evaluatie:
         description: "Kwaliteitstest draaien (duurt veel langer)"
         type: boolean
@@ -58,5 +63,6 @@ jobs:
           LEADGEN_GEMEENTE: ${{ inputs.gemeente }}
           LEADGEN_MAX_ADRESSEN: ${{ inputs.max_adressen }}
           LEADGEN_EVALUATIE: ${{ inputs.evaluatie }}
+          LEADGEN_ENERGIELABEL: ${{ inputs.energielabel }}
           PYTHONIOENCODING: utf-8
         run: python cli.py run

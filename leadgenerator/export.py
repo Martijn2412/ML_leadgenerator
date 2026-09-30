@@ -281,6 +281,13 @@ def maak_rapport(info):
     if info["waarschuwingen"]:
         r += ["", "## ⚠️ Waarschuwingen", ""] + [f"- {w}" for w in info["waarschuwingen"]]
 
+    lc = info.get("label_controle")
+    if lc:
+        from .controles import tabel_als_tekst
+        r += ["", "## Controle energielabel (label-lek)", "",
+              f"Instelling energielabel_bij_klanten: **{info.get('energielabel', 'gebruiken')}**", "",
+              lc["tekst"], "", tabel_als_tekst(lc)]
+
     ev = info.get("evaluatie")
     if ev:
         r += ["", "## Kwaliteit", "",
