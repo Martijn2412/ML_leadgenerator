@@ -40,6 +40,11 @@ class Config:
     klasse_a_aandeel: float = 0.10
     klasse_b_aandeel: float = 0.20
 
+    # Energielabel bij klanten: 'gebruiken', 'weglaten' of 'negeren' (vereist energielabel_datum_kolom).
+    energielabel_bij_klanten: str = "gebruiken"
+    energielabel_datum_kolom: str = ""
+    label_lek_drempel: float = 0.5
+
     cbs: dict = field(default_factory=dict)
     # Alleen de cache in data/cbs gebruiken, nooit het internet op (handig voor tests).
     cbs_offline: bool = False
@@ -55,4 +60,14 @@ def laad_config(pad=None):
     onbekend = set(waarden) - bekend
     if onbekend:
         raise ValueError(f"Onbekende instelling(en) in {pad}: {sorted(onbekend)}")
-    return Config(**waarden)
+    return controleer_config(Config(**waarden))
+
+
+ENERGIELABEL_KEUZES = ("gebruiken", "weglaten", "negeren")
+
+
+def controleer_config(cfg):
+    if cfg.energielabel_bij_klanten not in ENERGIELABEL_KEUZES:
+        raise ValueError(f"energielabel_bij_klanten moet een van {ENERGIELABEL_KEUZES} zijn, "
+                         f"niet '{cfg.energielabel_bij_klanten}'.")
+    return cfg

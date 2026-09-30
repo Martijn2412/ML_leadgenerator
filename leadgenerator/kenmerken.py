@@ -108,6 +108,41 @@ def postcode4(serie):
     return schoon.str[:4].where(schoon.str.match(r"^\d{4}"))
 
 
+def label_voor_order(df, cfg):
+    """Label-rang waarin labels van klanten die ná hun order zijn geregistreerd, vervangen zijn.
+
+    Zo'n label is vaak gemeten ná de isolatie door Takkenkamp. Het wordt niet leeg gemaakt (dan zou
+    'geen label' of de ingevulde mediaan juist verraden wie klant is), maar vervangen door het label van
+    een willekeurige niet-klant met een huis uit dezelfde bouwjaarklasse: een realistische schatting
+    van het label vóór de isolatie. Vereist een kolom met de registratiedatum van het label."""
+    from .controles import bouwjaarklasse
+
+    kolom = cfg.energielabel_datum_kolom
+    if not kolom or kolom not in df.columns:
+        raise ValueError(
+            "energielabel 'negeren' heeft een kolom met de labeldatum nodig (instelling "
+            f"energielabel_datum_kolom, nu '{kolom}'). Die kolom staat niet in Assetmaps; "
+            "kies 'weglaten' of 'gebruiken'."
+        )
+    label_jaar = pd.to_datetime(df[kolom], errors="coerce", dayfirst=True).dt.year
+    klant = df["is_klant"] == 1
+    # Onbekend orderjaar of onbekende labeldatum: voor de zekerheid als 'na de order' behandelen.
+    na_order = klant & (df["klant_jaar"].isna() | label_jaar.isna() | (label_jaar >= df["klant_jaar"]))
+
+    rang = df["energieklasse_rang"].copy()
+    klasse = bouwjaarklasse(df.get("pandbouwjaar", pd.Series(np.nan, index=df.index)))
+    rng = np.random.default_rng(cfg.random_state)
+    for waarde in list(klasse.dropna().unique()) + [None]:
+        in_klasse = klasse.isna() if waarde is None else (klasse == waarde)
+        doel = na_order & in_klasse
+        pool = rang[~klant & in_klasse].to_numpy()
+        if doel.any():
+            pool = pool if len(pool) else rang[~klant].to_numpy()
+            rang[doel] = rng.choice(pool, int(doel.sum()))
+    log.info("Energielabel: %d labels van klanten van ná hun order vervangen.", int(na_order.sum()))
+    return rang
+
+
 def maak_kenmerken(df, cfg):
     """Maakt de afgeleide kenmerken en de "_ontbreekt"-kolommen.
     Geeft (df, numerieke_kenmerken, categorische_kenmerken)."""
@@ -119,12 +154,22 @@ def maak_kenmerken(df, cfg):
     df["energieklasse_rang"] = (
         energielabel_rang(df["energieklasse"]) if "energieklasse" in df.columns else np.nan
     )
+    # Het ruwe label blijft bewaard voor de label-controle, wat de correctie hieronder ook doet.
+    df["energielabel_rang_ruw"] = df["energieklasse_rang"]
+    basis_numeriek, missing_kandidaten = BASIS_NUMERIEK, MISSING_KANDIDATEN
+    if cfg.energielabel_bij_klanten != "gebruiken":
+        # Bij 'negeren' en 'weglaten' nooit een "label ontbreekt"-kenmerk: dat zou verraden wie klant is.
+        missing_kandidaten = [k for k in MISSING_KANDIDATEN if k != "energieklasse_rang"]
+    if cfg.energielabel_bij_klanten == "weglaten":
+        basis_numeriek = [k for k in BASIS_NUMERIEK if k != "energieklasse_rang"]
+    elif cfg.energielabel_bij_klanten == "negeren":
+        df["energieklasse_rang"] = label_voor_order(df, cfg)
     df["buurt_sleutel"] = normaliseer_naam(df["gemeente"]) + "|" + normaliseer_naam(df["buurtnaam"])
     df["buurt_frequentie"] = df.groupby("buurt_sleutel")["vbo_id"].transform("size")
     df["postcode4"] = postcode4(df["postcode"])
 
     missing_indicatoren = []
-    for kolom in MISSING_KANDIDATEN:
+    for kolom in missing_kandidaten:
         if kolom in df.columns and df[kolom].isna().mean() > cfg.missing_indicator_drempel:
             df[f"{kolom}_ontbreekt"] = df[kolom].isna().astype(int)
             missing_indicatoren.append(f"{kolom}_ontbreekt")
@@ -134,7 +179,7 @@ def maak_kenmerken(df, cfg):
         df[naam] = 0.0
 
     numeriek = []
-    for kolom in BASIS_NUMERIEK + missing_indicatoren:
+    for kolom in basis_numeriek + missing_indicatoren:
         if kolom not in df.columns:
             log.warning("Kenmerk '%s' ontbreekt in de data en wordt overgeslagen.", kolom)
         elif df[kolom].notna().any():

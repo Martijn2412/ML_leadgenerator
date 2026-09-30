@@ -10,7 +10,7 @@ from pathlib import Path
 import joblib
 import numpy as np
 
-from . import cbs, evaluatie, export, kenmerken, model, redenen
+from . import cbs, controles, evaluatie, export, kenmerken, model, redenen
 from .inlezen import lees_bronnen
 
 log = logging.getLogger(__name__)
@@ -21,6 +21,15 @@ class Resultaat:
     uitmap: Path
     rapport: str
     bestanden: list = field(default_factory=list)
+
+
+def label_check(tios_pad, assetmaps_pad, cfg):
+    """Alleen inlezen, koppelen en de label-controle; geen model (snel)."""
+    tios, assetmaps, _ = lees_bronnen(tios_pad, assetmaps_pad, cfg)
+    per_vbo, per_pand = kenmerken.vat_tios_samen(tios, cfg)
+    data = kenmerken.koppel(assetmaps, per_vbo, per_pand)
+    data, _, _ = kenmerken.maak_kenmerken(data, cfg)
+    return controles.label_controle(data, cfg.label_lek_drempel)
 
 
 def run(tios_pad, assetmaps_pad, uitmap, cfg, evalueren=False, gemeente=None, max_adressen=None):
@@ -40,6 +49,11 @@ def run(tios_pad, assetmaps_pad, uitmap, cfg, evalueren=False, gemeente=None, ma
             "Geen enkel TIOS-adres gekoppeld aan Assetmaps. Controleer vbo_id in beide bestanden."
         )
     data, numeriek, categorisch = kenmerken.maak_kenmerken(data, cfg)
+    label_controle = controles.label_controle(data, cfg.label_lek_drempel)
+    if label_controle:
+        log.info(label_controle["tekst"])
+        if label_controle["lek"] and cfg.energielabel_bij_klanten == "gebruiken":
+            waarschuwingen.append(label_controle["tekst"])
     y = data["is_klant"].to_numpy()
     if y.sum() < 10:
         raise ValueError(f"Maar {y.sum()} klanten gevonden; te weinig om een model te trainen.")
@@ -121,6 +135,7 @@ def run(tios_pad, assetmaps_pad, uitmap, cfg, evalueren=False, gemeente=None, ma
         "leads": len(leadlijst), "witte_vlekken": aantal_witte_vlekken,
         "kenmerken": numeriek + categorisch, "cbs": cbs_stats,
         "waarschuwingen": waarschuwingen, "evaluatie": ev,
+        "label_controle": label_controle, "energielabel": cfg.energielabel_bij_klanten,
     }
     rapport = export.maak_rapport(info)
     rapport_pad = uitmap / "modelrapport.md"

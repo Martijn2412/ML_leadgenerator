@@ -46,6 +46,15 @@ excel_max_adressen: 0       # max. rijen per tabblad; 0 = alle adressen. De CSV 
 klasse_a_aandeel: 0.10      # top 10% = klasse A
 klasse_b_aandeel: 0.20      # volgende 20% = klasse B, de rest C
 
+# Energielabel bij klanten. Het label in Assetmaps is het huidige label; bij klanten is dat vaak
+# gemeten ná de isolatie. Controleer met: python cli.py controle ...
+#   gebruiken: label gewoon gebruiken (standaard)
+#   weglaten:  label niet als kenmerk gebruiken
+#   negeren:   labels van klanten die ná hun order zijn geregistreerd vervangen (vereist datumkolom)
+energielabel_bij_klanten: gebruiken
+energielabel_datum_kolom: ""   # technische naam van de kolom met de registratiedatum van het label
+label_lek_drempel: 0.5         # verschil in labelstappen (huizen vóór 1975) waarboven een lek gemeld wordt
+
 # CBS-buurtcijfers. Worden gecachet in data/cbs/; vernieuwen met: python cli.py cbs-vernieuwen
 cbs:
   gasverbruik:
