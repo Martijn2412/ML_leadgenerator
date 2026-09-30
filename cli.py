@@ -42,9 +42,14 @@ def main(argv=None):
     p_run.add_argument("--assetmaps", default=_env("ASSETMAPS"), help="Assetmaps-bestand (in --map)")
     p_run.add_argument("--gemeente", default=_env("GEMEENTE"), help="alleen deze gemeente in de lijst")
     p_run.add_argument("--max-adressen", type=int, default=int(_env("MAX_ADRESSEN", "0")) or None,
-                       help="max. adressen per Excel-tabblad")
-    p_run.add_argument("--geen-evaluatie", action="store_true",
-                       default=not _ja(_env("EVALUATIE", "ja")), help="sla de kwaliteitstest over")
+                       help="max. adressen per Excel-tabblad (standaard alle)")
+    # De kwaliteitstest (kruisvalidatie, backtest, belangrijkste kenmerken) kost bij een grote
+    # provincie het grootste deel van de rekentijd, dus standaard uit.
+    p_run.add_argument("--evaluatie", dest="evaluatie", action="store_true",
+                       default=_ja(_env("EVALUATIE", "nee")),
+                       help="draai ook de kwaliteitstest (duurt veel langer)")
+    p_run.add_argument("--geen-evaluatie", dest="evaluatie", action="store_false",
+                       help="sla de kwaliteitstest over (standaard)")
     p_run.add_argument("--uit", default=_env("UIT"), help="outputmap (standaard <map>/output/<datum>_<naam>)")
 
     sub.add_parser("cbs-vernieuwen", help="CBS-buurtcijfers opnieuw ophalen naar data/cbs/")
@@ -79,7 +84,7 @@ def main(argv=None):
         basis / "output" / f"{dt.datetime.now():%Y-%m-%d_%H%M}_{assetmaps_pad.stem}"
     )
 
-    resultaat = run(tios_pad, assetmaps_pad, uitmap, cfg, evalueren=not args.geen_evaluatie,
+    resultaat = run(tios_pad, assetmaps_pad, uitmap, cfg, evalueren=args.evaluatie,
                     gemeente=args.gemeente, max_adressen=args.max_adressen)
 
     samenvatting = os.environ.get("GITHUB_STEP_SUMMARY")

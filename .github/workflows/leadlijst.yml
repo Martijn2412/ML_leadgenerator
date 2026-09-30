@@ -18,13 +18,13 @@ on:
         required: false
         default: ""
       max_adressen:
-        description: "Maximaal aantal adressen per Excel-tabblad"
+        description: "Maximaal aantal adressen per Excel-tabblad (0 = alle adressen)"
         required: false
-        default: "5000"
+        default: "0"
       evaluatie:
-        description: "Kwaliteitstest draaien (duurt langer)"
+        description: "Kwaliteitstest draaien (duurt veel langer)"
         type: boolean
-        default: true
+        default: false
 
 permissions:
   contents: read

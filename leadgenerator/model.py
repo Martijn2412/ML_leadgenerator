@@ -1,5 +1,7 @@
 """Het ensemble (logistic regression + RandomForest) en het out-of-fold scoren."""
 
+import logging
+
 import numpy as np
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestClassifier
@@ -10,6 +12,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 from .kenmerken import met_regio
+
+log = logging.getLogger(__name__)
 
 
 def _voorbewerking(numeriek, categorisch, schalen):
@@ -76,8 +80,9 @@ def scoor_out_of_fold(data, y, numeriek, categorisch, cfg):
     y = np.asarray(y)
     kans = np.full(len(data), np.nan)
     cv = StratifiedKFold(n_splits=cfg.scoring_folds, shuffle=True, random_state=cfg.random_state)
-    for train_pos, test_pos in cv.split(data, y):
+    for fold, (train_pos, test_pos) in enumerate(cv.split(data, y), start=1):
         _, kans[test_pos], _ = train_en_voorspel(
             data, y, train_pos, test_pos, numeriek, categorisch, cfg
         )
+        log.info("Scoren: deel %d/%d klaar.", fold, cfg.scoring_folds)
     return kans
