@@ -1,12 +1,11 @@
 """Leadlijst naar Excel en CSV, en het modelrapport."""
 
-import re
-
 import numpy as np
 import pandas as pd
-from openpyxl.formatting.rule import FormulaRule
-from openpyxl.styles import Alignment, Font, PatternFill
-from openpyxl.worksheet.datavalidation import DataValidation
+import xlsxwriter
+
+# Excel kan per tabblad 1.048.576 rijen tonen, waarvan één de kopregel is.
+EXCEL_MAX_RIJEN = 1_048_575
 
 LEADLIJST_KOLOMMEN = {
     "straatnaam": "straat",
@@ -63,53 +62,44 @@ def maak_leadlijst(leads):
     return uit
 
 
-def _bladnaam(naam, gebruikt):
-    schoon = re.sub(r"[\[\]:*?/\\]", "", str(naam))[:31] or "onbekend"
-    basis, i = schoon, 2
-    while schoon.lower() in gebruikt:
-        schoon = f"{basis[:28]}_{i}"
-        i += 1
-    gebruikt.add(schoon.lower())
-    return schoon
-
-
-def _pas_breedte_aan(blad, df, maximum=40):
-    for i, kolom in enumerate(df.columns, start=1):
+def _kolombreedtes(df, maximum=40):
+    breedtes = []
+    for kolom in df.columns:
         waarden = [len(str(v)) for v in df[kolom].head(200)] if len(df) else [8]
-        breedte = min(max(len(str(kolom)), *waarden) + 2, maximum)
-        blad.column_dimensions[blad.cell(1, i).column_letter].width = breedte
+        breedtes.append(min(max(len(str(kolom)), *waarden) + 2, maximum))
+    return breedtes
 
 
-def _schrijf_adresblad(writer, df, naam):
-    """Adrestabblad met vooraan 'benaderd' (keuzelijst) en 'opmerking'; afgevinkte rijen worden grijs."""
+def _schrijf_adresblad(boek, opmaak, df, naam):
+    """Adrestabblad met vooraan 'benaderd' (keuzelijst) en 'opmerking'; afgevinkte rijen worden grijs.
+    Rij voor rij geschreven, zodat ook 400.000+ adressen weinig geheugen kosten."""
     df = df.copy()
     for i, kolom in enumerate(AFVINK_KOLOMMEN):
         df.insert(i, kolom, "")
-    df.to_excel(writer, sheet_name=naam, index=False)
-    blad = writer.sheets[naam]
-    blad.freeze_panes = "C2"
-    _pas_breedte_aan(blad, df)
-    blad.column_dimensions["A"].width = 14
-    blad.column_dimensions["B"].width = 30
+    blad = boek.add_worksheet(naam)
+    for i, breedte in enumerate(_kolombreedtes(df)):
+        blad.set_column(i, i, breedte)
+    blad.set_column(0, 0, 14)
+    blad.set_column(1, 1, 30)
     if "redenen" in df.columns:
-        letter = blad.cell(1, df.columns.get_loc("redenen") + 1).column_letter
-        blad.column_dimensions[letter].width = 70
+        i = df.columns.get_loc("redenen")
+        blad.set_column(i, i, 70)
 
-    laatste_rij = max(len(df) + 1, 2)
-    keuzelijst = DataValidation(
-        type="list", formula1='"' + ",".join(BENADERD_KEUZES) + '"', allow_blank=True,
-        showErrorMessage=True, errorTitle="Ongeldige keuze",
-        error="Kies ja, nee of geen interesse.",
-    )
-    blad.add_data_validation(keuzelijst)
-    keuzelijst.add(f"A2:A{laatste_rij}")
-    grijs = FormulaRule(formula=['$A2="ja"'], fill=PatternFill("solid", fgColor="E7E6E6"),
-                        font=Font(color="808080"))
-    blad.conditional_formatting.add(f"A2:{blad.cell(1, len(df.columns)).column_letter}{laatste_rij}", grijs)
-    if len(df):
-        blad.auto_filter.ref = blad.dimensions
-    for cel in blad[1]:
-        cel.font = Font(bold=True)
+    blad.write_row(0, 0, list(df.columns), opmaak["kopregel"])
+    rijen = df.astype(object).where(df.notna(), None).itertuples(index=False, name=None)
+    for r, rij in enumerate(rijen, start=1):
+        blad.write_row(r, 0, rij)
+
+    laatste, laatste_kolom = max(len(df), 1), len(df.columns) - 1
+    blad.freeze_panes(1, 2)
+    blad.autofilter(0, 0, laatste, laatste_kolom)
+    blad.data_validation(1, 0, laatste, 0, {
+        "validate": "list", "source": BENADERD_KEUZES,
+        "error_title": "Ongeldige keuze", "error_message": "Kies ja, nee of geen interesse.",
+    })
+    blad.conditional_format(1, 0, laatste, laatste_kolom, {
+        "type": "formula", "criteria": '=$A2="ja"', "format": opmaak["afgevinkt"],
+    })
 
 
 def _duizend(n):
@@ -119,7 +109,6 @@ def _duizend(n):
 def _lees_mij_tekst(context, kwaliteit):
     """(kop, tekst)-regels voor het eerste tabblad. Een kop zonder tekst is een sectietitel."""
     gebied = f"gemeente {context['gemeente']}" if context.get("gemeente") else "het hele bestand"
-    max_ = _duizend(context["max_adressen"])
     regels = [
         ("Leadlijst Takkenkamp", ""),
         ("Wat is dit?", ""),
@@ -141,19 +130,20 @@ def _lees_mij_tekst(context, kwaliteit):
         ("", "'eerder_contact = ja' betekent: dit adres staat al in TIOS (bijvoorbeeld een offerte), "
              "maar werd geen klant. Kijk in TIOS wat er toen speelde voordat je belt."),
         ("Hoe werk je ermee?", ""),
-        ("", "Vul in de kolom 'benaderd' ja, nee of 'geen interesse' in; bij 'ja' wordt de rij grijs. "
-             "In 'opmerking' kun je notities kwijt. Met de filterknoppen in de kopregel kun je bijvoorbeeld "
-             "alleen klasse A of één woonplaats tonen."),
-        ("", "Let op: elk tabblad is een eigen kopie. Afvinken op 'Top' verandert het gemeente-tabblad niet. "
-             "Werk voor één actie dus vanuit één tabblad."),
+        ("", "Begin bovenaan het tabblad 'Top': daar staan de kansrijkste adressen. Vul in de kolom "
+             "'benaderd' ja, nee of 'geen interesse' in; bij 'ja' wordt de rij grijs. In 'opmerking' kun "
+             "je notities kwijt."),
+        ("", "Met de filterknoppen in de kopregel kies je bijvoorbeeld één gemeente, woonplaats of alleen "
+             "klasse A. De volgorde op score blijft dan gewoon staan."),
+        ("", "Let op: 'Witte vlekken' is een aparte kopie. Een adres dat je daar afvinkt, is op 'Top' "
+             "niet afgevinkt (en andersom)."),
         ("Tabbladen", ""),
-        ("Top", f"De {max_} kansrijkste adressen van de hele lijst."),
-        ("Per gemeente", f"Per gemeente de {max_} kansrijkste adressen, bijvoorbeeld voor een brievenactie."),
+        ("Top", "Alle adressen die nog geen klant zijn, van hoogste naar laagste score"
+                + (f" (de eerste {_duizend(context['op_top'])}; de rest staat in leadlijst_volledig.csv)."
+                   if context["op_top"] < context["leads"] else ".")),
         ("Witte vlekken", "Laatste tabblad: kansrijke adressen in postcodegebieden waar nog géén klant "
                           "woont. Voor het openen van nieuwe gebieden; hier ontbreekt het buurteffect, "
                           "de score komt dus uit de woning zelf."),
-        ("Volledige lijst", "Alle adressen staan in leadlijst_volledig.csv "
-                            "(Excel toont max. ~1 miljoen rijen)."),
         ("Hoe betrouwbaar is de lijst?", ""),
     ]
     regels += [(k, t) for k, t in kwaliteit if k and k != "Gemaakt op"]
@@ -161,21 +151,20 @@ def _lees_mij_tekst(context, kwaliteit):
     return regels
 
 
-def _schrijf_lees_mij(writer, context, kwaliteit):
-    blad = writer.book.create_sheet("Lees mij", 0)
-    blad.column_dimensions["A"].width = 30
-    blad.column_dimensions["B"].width = 110
-    boven = Alignment(wrap_text=True, vertical="top")
-    for rij, (kop, tekst) in enumerate(_lees_mij_tekst(context, kwaliteit), start=1):
-        a, b = blad.cell(rij, 1, kop), blad.cell(rij, 2, tekst)
-        a.alignment = b.alignment = boven
-        if rij == 1:
-            a.font = Font(bold=True, size=16)
+def _schrijf_lees_mij(boek, opmaak, context, kwaliteit):
+    blad = boek.add_worksheet("Lees mij")
+    blad.hide_gridlines(2)
+    blad.set_column(0, 0, 30, opmaak["tekst"])
+    blad.set_column(1, 1, 110, opmaak["tekst"])
+    for rij, (kop, tekst) in enumerate(_lees_mij_tekst(context, kwaliteit)):
+        if rij == 0:
+            stijl = opmaak["titel"]
         elif kop and not tekst:
-            a.font = Font(bold=True, size=12, color="1F4E78")
-        elif kop:
-            a.font = Font(bold=True)
-    blad.sheet_view.showGridLines = False
+            stijl = opmaak["sectie"]
+        else:
+            stijl = opmaak["label"]
+        blad.write_string(rij, 0, kop, stijl)
+        blad.write_string(rij, 1, tekst, opmaak["tekst"])
 
 
 def _beste_k(scores):
@@ -226,20 +215,30 @@ def kwaliteit_regels(ev, toevalskans, waarschuwingen, datum, bestanden):
 
 
 def schrijf_excel(pad, leadlijst, max_adressen, kwaliteit=(), context=None):
-    """Tabbladen: Lees mij, Top, één per gemeente en als laatste Witte vlekken
-    (adrestabbladen elk max. `max_adressen` rijen)."""
-    context = context or {"datum": "", "bestanden": [], "leads": len(leadlijst), "klanten": 0,
-                          "gemeente": None, "max_adressen": max_adressen}
-    gebruikt = {"lees mij", "top", "witte vlekken"}
+    """Drie tabbladen: Lees mij, Top (alle adressen op volgorde van score) en Witte vlekken.
+    `max_adressen` (0 = alles) begrenst het aantal rijen per adrestabblad."""
+    limiet = min(max_adressen or EXCEL_MAX_RIJEN, EXCEL_MAX_RIJEN)
+    context = {"datum": "", "bestanden": [], "leads": len(leadlijst), "klanten": 0, "gemeente": None,
+               **(context or {}), "op_top": min(len(leadlijst), limiet)}
     geen_klant_dichtbij = (leadlijst["klanten_in_buurt"] == 0) & (leadlijst["klanten_in_postcode4"] == 0)
     witte_vlekken = leadlijst[geen_klant_dichtbij]
-    with pd.ExcelWriter(pad, engine="openpyxl") as writer:
-        _schrijf_adresblad(writer, leadlijst.head(max_adressen), "Top")
-        for gemeente, deel in leadlijst.groupby("gemeente", sort=True):
-            _schrijf_adresblad(writer, deel.head(max_adressen), _bladnaam(gemeente, gebruikt))
-        _schrijf_adresblad(writer, witte_vlekken.head(max_adressen), "Witte vlekken")
-        _schrijf_lees_mij(writer, context, kwaliteit)
-        writer.book.active = 0
+
+    # strings_to_formulas uit: een adres of opmerking die met '=' begint blijft gewoon tekst.
+    boek = xlsxwriter.Workbook(pad, {"constant_memory": True, "strings_to_formulas": False,
+                                     "strings_to_urls": False})
+    opmaak = {
+        "kopregel": boek.add_format({"bold": True, "bottom": 1}),
+        "afgevinkt": boek.add_format({"bg_color": "#E7E6E6", "font_color": "#808080"}),
+        "titel": boek.add_format({"bold": True, "font_size": 16}),
+        "sectie": boek.add_format({"bold": True, "font_size": 12, "font_color": "#1F4E78",
+                                   "text_wrap": True, "valign": "top"}),
+        "label": boek.add_format({"bold": True, "text_wrap": True, "valign": "top"}),
+        "tekst": boek.add_format({"text_wrap": True, "valign": "top"}),
+    }
+    _schrijf_lees_mij(boek, opmaak, context, kwaliteit)
+    _schrijf_adresblad(boek, opmaak, leadlijst.head(limiet), "Top")
+    _schrijf_adresblad(boek, opmaak, witte_vlekken.head(limiet), "Witte vlekken")
+    boek.close()
     return len(witte_vlekken)
 
 

@@ -13,11 +13,11 @@ def test_hele_run(bestanden, cfg, tmp_path):
         assert pad.exists(), pad
     excel = resultaat.uitmap / "leadlijst.xlsx"
     bladen = pd.ExcelFile(excel).sheet_names
-    assert bladen == ["Lees mij", "Top", "Hulst", "Middelburg", "Vlissingen", "Witte vlekken"]
+    assert bladen == ["Lees mij", "Top", "Witte vlekken"]
 
     top = pd.read_excel(excel, sheet_name="Top")
     assert list(top.columns[:2]) == ["benaderd", "opmerking"]
-    assert len(top) == cfg.excel_max_adressen
+    assert len(top) == cfg.excel_max_adressen  # begrensd in deze test
     assert top["score"].is_monotonic_decreasing
     assert set(top["klasse"]) <= {"A", "B", "C"}
     assert top["redenen"].fillna("").str.len().gt(0).mean() > 0.9  # bijna overal een reden
@@ -57,3 +57,6 @@ def test_gemeentefilter_en_cli(bestanden, tmp_path, monkeypatch):
     lees_mij = pd.read_excel(uit / "leadlijst.xlsx", sheet_name="Lees mij", header=None).fillna("")
     assert lees_mij[1].str.contains("Niet gemeten").any()  # standaard geen evaluatie
     assert "Hulst" in " ".join(lees_mij[1])
+    top = pd.read_excel(uit / "leadlijst.xlsx", sheet_name="Top")
+    assert len(top) == len(volledig)  # standaard staan álle adressen op Top
+    assert top["score"].is_monotonic_decreasing

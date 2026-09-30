@@ -21,8 +21,7 @@ Tabbladen, in deze volgorde:
 | tabblad | wat staat erop |
 |---|---|
 | **Lees mij** | wat dit document is, hoe je het leest en afvinkt, en hoe betrouwbaar deze lijst is |
-| **Top** | de kansrijkste adressen van de hele provincie |
-| **per gemeente** | de kansrijkste adressen per gemeente, bijv. voor een brievenactie |
+| **Top** | álle adressen die nog geen klant zijn, van hoogste naar laagste score; filter per gemeente of klasse met de filterknoppen |
 | **Witte vlekken** (laatste) | kansrijke adressen in postcodegebieden waar nog geen klant is |
 
 | kolom | betekenis |
@@ -35,7 +34,7 @@ Tabbladen, in deze volgorde:
 | `eerder_contact` | "ja" = staat al in TIOS (bijv. offerte), maar werd geen klant |
 | `klanten_in_buurt` | aantal bestaande klanten in dezelfde buurt |
 
-Elk tabblad is een eigen kopie: afvinken op "Top" verandert het gemeente-tabblad niet.
+"Witte vlekken" is een aparte kopie: afvinken op "Top" verandert dat tabblad niet.
 Alle adressen staan in `leadlijst_volledig.csv` (Excel kan maximaal ~1 miljoen rijen tonen).
 
 De redenen komen uit het logistic-regression-deel van het model (per kenmerk: gewicht × waarde).
@@ -115,5 +114,5 @@ De tests gebruiken alleen verzonnen data. Zet **nooit** echte klantbestanden in 
 - `-99997` wordt in **alle** getalkolommen leeg gemaakt; energielabels `A+`/`A++` worden herkend en ontbrekend label is een eigen kenmerk.
 - **CBS-cache** in de repo en koppeling op buurtcode als Assetmaps die heeft.
 - **Tijdsbacktest**: train met klanten tot jaar X, test of de klanten van daarna bovenaan staan.
-- Kolom **eerder_contact**, klasse A/B/C, tabbladen per gemeente, en de volledige lijst als CSV (geen Excel-limiet meer).
+- Kolom **eerder_contact**, klasse A/B/C, redenen per adres, afvinkkolom, en de volledige lijst als CSV.
 - `pand_leeftijd` verwijderd (was gelijk aan bouwjaar, alleen omgekeerd).

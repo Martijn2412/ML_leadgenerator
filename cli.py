@@ -42,7 +42,7 @@ def main(argv=None):
     p_run.add_argument("--assetmaps", default=_env("ASSETMAPS"), help="Assetmaps-bestand (in --map)")
     p_run.add_argument("--gemeente", default=_env("GEMEENTE"), help="alleen deze gemeente in de lijst")
     p_run.add_argument("--max-adressen", type=int, default=int(_env("MAX_ADRESSEN", "0")) or None,
-                       help="max. adressen per Excel-tabblad")
+                       help="max. adressen per Excel-tabblad (standaard alle)")
     # De kwaliteitstest (kruisvalidatie, backtest, belangrijkste kenmerken) kost bij een grote
     # provincie het grootste deel van de rekentijd, dus standaard uit.
     p_run.add_argument("--evaluatie", dest="evaluatie", action="store_true",

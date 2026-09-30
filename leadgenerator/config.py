@@ -36,7 +36,7 @@ class Config:
     permutatie_steekproef: int = 20_000
     backtest_jaren: int = 2
 
-    excel_max_adressen: int = 5000
+    excel_max_adressen: int = 0  # 0 = alle adressen (tot de Excel-limiet)
     klasse_a_aandeel: float = 0.10
     klasse_b_aandeel: float = 0.20
 
