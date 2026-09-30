@@ -130,15 +130,15 @@ def _lees_mij_tekst(context, kwaliteit):
         ("", "'eerder_contact = ja' betekent: dit adres staat al in TIOS (bijvoorbeeld een offerte), "
              "maar werd geen klant. Kijk in TIOS wat er toen speelde voordat je belt."),
         ("Hoe werk je ermee?", ""),
-        ("", "Begin bovenaan het tabblad 'Top': daar staan de kansrijkste adressen. Vul in de kolom "
+        ("", "Begin bovenaan het tabblad 'Resultaat': daar staan de kansrijkste adressen. Vul in de kolom "
              "'benaderd' ja, nee of 'geen interesse' in; bij 'ja' wordt de rij grijs. In 'opmerking' kun "
              "je notities kwijt."),
         ("", "Met de filterknoppen in de kopregel kies je bijvoorbeeld één gemeente, woonplaats of alleen "
              "klasse A. De volgorde op score blijft dan gewoon staan."),
-        ("", "Let op: 'Witte vlekken' is een aparte kopie. Een adres dat je daar afvinkt, is op 'Top' "
+        ("", "Let op: 'Witte vlekken' is een aparte kopie. Een adres dat je daar afvinkt, is op 'Resultaat' "
              "niet afgevinkt (en andersom)."),
         ("Tabbladen", ""),
-        ("Top", "Alle adressen die nog geen klant zijn, van hoogste naar laagste score"
+        ("Resultaat", "Alle adressen die nog geen klant zijn, van hoogste naar laagste score"
                 + (f" (de eerste {_duizend(context['op_top'])}; de rest staat in leadlijst_volledig.csv)."
                    if context["op_top"] < context["leads"] else ".")),
         ("Witte vlekken", "Laatste tabblad: kansrijke adressen in postcodegebieden waar nog géén klant "
@@ -152,7 +152,7 @@ def _lees_mij_tekst(context, kwaliteit):
 
 
 def _schrijf_lees_mij(boek, opmaak, context, kwaliteit):
-    blad = boek.add_worksheet("Lees mij")
+    blad = boek.add_worksheet("Uitleg")
     blad.hide_gridlines(2)
     blad.set_column(0, 0, 30, opmaak["tekst"])
     blad.set_column(1, 1, 110, opmaak["tekst"])
@@ -215,7 +215,7 @@ def kwaliteit_regels(ev, toevalskans, waarschuwingen, datum, bestanden):
 
 
 def schrijf_excel(pad, leadlijst, max_adressen, kwaliteit=(), context=None):
-    """Drie tabbladen: Lees mij, Top (alle adressen op volgorde van score) en Witte vlekken.
+    """Drie tabbladen: Uitleg, Resultaat (alle adressen op volgorde van score) en Witte vlekken.
     `max_adressen` (0 = alles) begrenst het aantal rijen per adrestabblad."""
     limiet = min(max_adressen or EXCEL_MAX_RIJEN, EXCEL_MAX_RIJEN)
     context = {"datum": "", "bestanden": [], "leads": len(leadlijst), "klanten": 0, "gemeente": None,
@@ -236,7 +236,7 @@ def schrijf_excel(pad, leadlijst, max_adressen, kwaliteit=(), context=None):
         "tekst": boek.add_format({"text_wrap": True, "valign": "top"}),
     }
     _schrijf_lees_mij(boek, opmaak, context, kwaliteit)
-    _schrijf_adresblad(boek, opmaak, leadlijst.head(limiet), "Top")
+    _schrijf_adresblad(boek, opmaak, leadlijst.head(limiet), "Resultaat")
     _schrijf_adresblad(boek, opmaak, witte_vlekken.head(limiet), "Witte vlekken")
     boek.close()
     return len(witte_vlekken)

@@ -20,8 +20,8 @@ Tabbladen, in deze volgorde:
 
 | tabblad | wat staat erop |
 |---|---|
-| **Lees mij** | wat dit document is, hoe je het leest en afvinkt, en hoe betrouwbaar deze lijst is |
-| **Top** | álle adressen die nog geen klant zijn, van hoogste naar laagste score; filter per gemeente of klasse met de filterknoppen |
+| **Uitleg** | wat dit document is, hoe je het leest en afvinkt, en hoe betrouwbaar deze lijst is |
+| **Resultaat** | álle adressen die nog geen klant zijn, van hoogste naar laagste score; filter per gemeente of klasse met de filterknoppen |
 | **Witte vlekken** (laatste) | kansrijke adressen in postcodegebieden waar nog geen klant is |
 
 | kolom | betekenis |
@@ -34,14 +34,14 @@ Tabbladen, in deze volgorde:
 | `eerder_contact` | "ja" = staat al in TIOS (bijv. offerte), maar werd geen klant |
 | `klanten_in_buurt` | aantal bestaande klanten in dezelfde buurt |
 
-"Witte vlekken" is een aparte kopie: afvinken op "Top" verandert dat tabblad niet.
+"Witte vlekken" is een aparte kopie: afvinken op "Resultaat" verandert dat tabblad niet.
 Alle adressen staan in `leadlijst_volledig.csv` (Excel kan maximaal ~1 miljoen rijen tonen).
 
 De redenen komen uit het logistic-regression-deel van het model (per kenmerk: gewicht × waarde).
 De RandomForest weegt wel mee in de score, maar geeft geen uitleg per adres; de redenen zijn
 dus een goede, maar niet volledige verklaring van de score.
 
-Op **Lees mij** staat ook hoe goed het model was in deze run, in gewone taal
+Op **Uitleg** staat ook hoe goed het model was in deze run, in gewone taal
 (bijv. "van de top-500 werd 2,6% klant; bij willekeurig kiezen 1,7%, dus 1,5× zo goed"),
 met de AUC en eventuele waarschuwingen (zoals ontbrekende CBS-cijfers).
 De kwaliteitstest staat standaard uit (sneller); zet hem aan met `--evaluatie` of het vinkje
@@ -100,7 +100,7 @@ De tests gebruiken alleen verzonnen data. Zet **nooit** echte klantbestanden in 
 | `leadgenerator/kenmerken.py` | TIOS samenvatten, koppelen, label `is_klant`, kenmerken, buurteffect |
 | `leadgenerator/model.py` | ensemble (logistic regression + RandomForest), out-of-fold scoren |
 | `leadgenerator/evaluatie.py` | kruisvalidatie, nieuwe postcodegebieden, tijdsbacktest, belangrijkste kenmerken |
-| `leadgenerator/export.py` | Excel (Lees mij, afvinkkolommen, tabbladen)/CSV en modelrapport |
+| `leadgenerator/export.py` | Excel (Uitleg, Resultaat, Witte vlekken)/CSV en modelrapport |
 | `leadgenerator/redenen.py` | redenen per adres in gewone taal |
 | `leadgenerator/pipeline.py` | de hele run in één functie (ook voor de toekomstige Streamlit-app) |
 | `notebooks/` | het oorspronkelijke Colab-notebook, ter referentie |
