@@ -7,6 +7,18 @@ kansrijke woningen hebben (bouwjaar, energielabel, oppervlakte, buurt, CBS-gasve
 
 ## Zo maak je een leadlijst (binnendienst)
 
+**Met de webpagina (aanbevolen)**
+
+1. Open de webpagina van de leadgenerator (de beheerder geeft je de link).
+2. Kies het Assetmaps-bestand en het TIOS-bestand (of upload ze).
+3. Vul eventueel een gemeente in en klik op **Leadlijst maken**.
+4. Na 5 tot 30 minuten verschijnen de knoppen om de Excel, de CSV en het modelrapport te downloaden.
+   Eerder gemaakte lijsten staan onderaan onder *Eerder gemaakte lijsten*.
+
+Links in de pagina staat een knop **Demo-bestanden maken** om het zonder echte data te proberen.
+
+**Via GitHub Actions (alternatief)**
+
 1. Zet de Assetmaps-export (bijv. `Woningen_Zeeland.xlsx`) en de TIOS-export in de gedeelde
    map `Leadgenerator`.
 2. Open de repository in GitHub → tabblad **Actions** → **Leadlijst maken** →
@@ -97,6 +109,15 @@ Wat je dan kunt doen (`--energielabel`, of `energielabel_bij_klanten` in `config
 Kies de variant met de tijdsbacktest: draai `run --evaluatie` met `gebruiken` en met `weglaten` en
 vergelijk de top-500 in `modelrapport.md`.
 
+### De webpagina starten (beheerder)
+```bash
+pip install -r requirements.txt
+LEADGEN_MAP="S:\\Leadgenerator" streamlit run app.py        # Windows (cmd): set LEADGEN_MAP=S:\Leadgenerator
+```
+Zet dit op dezelfde pc als de runner (of een andere interne server), zodat de klantgegevens het bedrijf
+niet verlaten. Collega's openen daarna `http://<naam-van-de-pc>:8501`. De pagina heeft zelf geen
+inlog: zet hem alleen op het interne netwerk of achter een wachtwoord (bijv. via een reverse proxy).
+
 ### Lokaal draaien
 ```bash
 python -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\activate
@@ -123,7 +144,9 @@ De tests gebruiken alleen verzonnen data. Zet **nooit** echte klantbestanden in 
 | `leadgenerator/evaluatie.py` | kruisvalidatie, nieuwe postcodegebieden, tijdsbacktest, belangrijkste kenmerken |
 | `leadgenerator/export.py` | Excel (Uitleg, Resultaat, Witte vlekken)/CSV en modelrapport |
 | `leadgenerator/redenen.py` | redenen per adres in gewone taal |
-| `leadgenerator/pipeline.py` | de hele run in één functie (ook voor de toekomstige Streamlit-app) |
+| `leadgenerator/pipeline.py` | de hele run in één functie (CLI, workflow en webpagina gebruiken die) |
+| `app.py` | de Streamlit-webpagina |
+| `leadgenerator/app_hulp.py` | hulpfuncties voor de webpagina (bestanden zoeken, foutmeldingen in gewone taal) |
 | `notebooks/` | het oorspronkelijke Colab-notebook, ter referentie |
 
 ## Verschillen met het Colab-notebook

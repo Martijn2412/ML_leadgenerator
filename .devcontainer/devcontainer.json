@@ -1,6 +1,7 @@
 {
   "name": "Leadgenerator",
   "image": "mcr.microsoft.com/devcontainers/python:3.11",
+  "forwardPorts": [8501],
   "postCreateCommand": "pip install -r requirements.txt -r requirements-dev.txt",
   "customizations": {
     "vscode": {
